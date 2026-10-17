@@ -1,0 +1,49 @@
+# Python / uv
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+build/
+dist/
+
+# Secrets and local settings
+.env
+.env.*
+!.env.example
+
+# Organizers' dataset: may be used only within the hackathon (FAQ 6). Never commit videos or labels.
+open/
+*.mov
+*.MOV
+*.mp4
+*.zip
+open_labels.xlsx
+
+# Generated stores, rebuilt by `uv run kb cases ...` and `uv run rag build`.
+# knowledge/store also contains frames and clips of the dataset videos.
+knowledge/store/
+rag/store/
+cashwatch/var/
+cashwatch/runs/
+
+# Regulatory corpus: keep only what the RAG reads (registry + plain texts); HTML, images, originals stay local.
+npa_bank_kz/*
+!npa_bank_kz/registry.json
+!npa_bank_kz/readme.txt
+!npa_bank_kz/texts/
+
+# Organizer documents
+*.docx
+
+# Editors, OS, assistants
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+.claude/
+CLAUDE.md
+PRESENTATION.md

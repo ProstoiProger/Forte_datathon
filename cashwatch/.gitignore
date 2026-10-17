@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.env
+var/
+data/
+*.mov
+*.MOV
+*.mp4
+*.zip
+*.docx
+CLAUDE.md
+.claude/
+PLAN.md
+RUNBOOK_5090.md
+dist/

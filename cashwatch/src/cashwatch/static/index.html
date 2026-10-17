@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Контроль кассовой дисциплины</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <h1>Контроль кассовой дисциплины</h1>
+      <p class="sub">Анализ видеозаписи работы кассира. Результат является подсказкой для проверки человеком, а не юридическим заключением.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card" id="upload-card">
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept=".mov,.mp4,.m4v,video/quicktime,video/mp4" hidden>
+        <span class="drop-title">Перетащите видео сюда или нажмите для выбора</span>
+        <span class="drop-hint">Формат .mov, до 200 МБ</span>
+        <span class="drop-file" id="file-name"></span>
+      </label>
+      <div class="actions">
+        <button id="run" disabled>Проверить видео</button>
+      </div>
+      <div class="status" id="status" hidden>
+        <div class="bar"><div class="fill" id="fill"></div></div>
+        <span id="status-text"></span>
+      </div>
+      <p class="error" id="error" hidden></p>
+    </section>
+
+    <section id="result" hidden>
+      <div class="verdict" id="verdict"></div>
+      <div class="grid">
+        <div class="player card">
+          <video id="video" controls muted playsinline></video>
+          <p class="meta" id="meta"></p>
+        </div>
+        <div class="events" id="events"></div>
+      </div>
+    </section>
+
+    <details class="card types">
+      <summary>Какие нарушения распознает сервис</summary>
+      <ul id="types"></ul>
+    </details>
+  </main>
+
+  <div class="lightbox" id="lightbox" hidden>
+    <img id="lightbox-img" alt="Кадр-доказательство">
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

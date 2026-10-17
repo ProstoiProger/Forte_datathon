@@ -1,0 +1,41 @@
+[project]
+name = "npa-rag"
+version = "0.1.0"
+description = "Hybrid retrieval over the Kazakhstan banking cash-desk regulations: BM25 + dense vectors + reciprocal rank fusion + optional cross-encoder"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "forte-kb",            # embedder and on-disk vector store from ../knowledge, used read-only
+    "torch==2.8.0",
+    "transformers==4.57.1",
+    "bm25s>=0.2.13",
+    "PyStemmer>=2.2",
+    "numpy>=2.1",
+    "scipy>=1.14",
+]
+
+[project.scripts]
+rag = "npa_rag.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8.4"]
+
+[tool.uv.sources]
+forte-kb = { path = "../knowledge", editable = true }
+torch = [{ index = "pytorch-cu128" }]
+torchvision = [{ index = "pytorch-cu128" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/npa_rag"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

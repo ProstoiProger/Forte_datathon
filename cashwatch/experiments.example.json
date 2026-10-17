@@ -1,0 +1,13 @@
+{
+  "defaults": ["--analyzer", "vlm", "--exclude-groups", "s11,s12"],
+  "experiments": [
+    {"name": "vlm8b_base", "args": ["--vlm-model", "qwen3-vl:8b"], "timeout_min": 120},
+    {"name": "vlm8b_refs", "args": ["--vlm-model", "qwen3-vl:8b", "--vlm-reference-dir", "data/references"], "timeout_min": 150},
+    {"name": "vlm8b_fps3", "args": ["--vlm-model", "qwen3-vl:8b", "--vlm-fps", "3", "--vlm-max-frames", "16"], "timeout_min": 150},
+    {"name": "vlm8b_w8s4", "args": ["--vlm-model", "qwen3-vl:8b", "--vlm-window-sec", "8", "--vlm-stride-sec", "4"], "timeout_min": 120},
+    {"name": "vlm8b_maxscore", "args": ["--vlm-model", "qwen3-vl:8b", "--vlm-score", "max"], "timeout_min": 120},
+    {"name": "vlm2b_base", "args": ["--vlm-model", "qwen3-vl:2b"], "timeout_min": 90},
+    {"name": "vlm8b_warp", "args": ["--vlm-model", "qwen3-vl:8b", "--transform", "warp"], "timeout_min": 120},
+    {"name": "vlm8b_flip", "args": ["--vlm-model", "qwen3-vl:8b", "--transform", "flip"], "timeout_min": 120}
+  ]
+}
