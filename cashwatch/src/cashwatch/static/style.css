@@ -537,3 +537,84 @@ body { background: linear-gradient(180deg, #FBEFF4 0, #F7F6F6 420px, #F7F6F6 100
   .hero h1 { font-size: 30px; }
   .hero-orb-2 { display: none; }
 }
+
+/* ================= Access key gate ================= */
+body.locked { overflow: hidden; }
+.header-actions { display: flex; align-items: center; gap: 10px; flex: none; }
+.key-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 34px; padding: 4px 14px 4px 10px; border-radius: 999px;
+  border: 0; background: var(--forte-dark); color: #fff;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color .2s;
+}
+.key-btn::before {
+  content: ""; width: 16px; height: 16px; flex: none;
+  background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='8' cy='15' r='4'/%3E%3Cpath d='M10.8 12.2L20 3M16 7l3 3M14 9l2 2'/%3E%3C/svg%3E");
+}
+.key-btn:hover { background: var(--forte-magenta); }
+
+.gate {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: radial-gradient(80% 80% at 80% 10%, rgba(240,55,133,.55), transparent 60%),
+              radial-gradient(70% 70% at 10% 90%, rgba(97,207,255,.35), transparent 60%),
+              rgba(46, 1, 21, .82);
+  backdrop-filter: blur(8px);
+  overflow-y: auto;
+}
+.gate-panel {
+  width: 100%; max-width: 440px; margin: auto;
+  background: var(--surface); border-radius: var(--radius-xl); overflow: hidden;
+  box-shadow: 0 32px 64px -24px rgba(0,0,0,.55);
+}
+.gate-top {
+  position: relative; height: 120px; padding: 24px 28px;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  background: radial-gradient(120% 140% at 100% 0%, #F03785 0%, transparent 55%),
+              linear-gradient(120deg, #4A0221 0%, #A31551 60%, #E2206F 100%);
+}
+.gate-top img { display: block; height: 24px; width: auto; }
+.gate-lock {
+  position: absolute; left: 28px; bottom: -28px;
+  width: 56px; height: 56px; border-radius: 18px;
+  background: #fff no-repeat center / 26px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23A31551' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='10' width='16' height='11' rx='2.5'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3'/%3E%3Ccircle cx='12' cy='15.5' r='1.4' fill='%23A31551'/%3E%3C/svg%3E");
+  box-shadow: 0 10px 20px -8px rgba(74,2,33,.45);
+}
+.gate-body { padding: 44px 28px 28px; }
+.gate-title { margin: 0 0 6px; font-size: 24px; line-height: 1.25; font-weight: 700; color: var(--forte-dark); }
+.gate-sub { margin: 0 0 20px; font-size: 15px; color: var(--muted); }
+.field-label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; color: var(--graphite); }
+.key-field {
+  display: flex; align-items: center; gap: 4px;
+  border: 1.5px solid var(--line-strong); border-radius: var(--radius);
+  background: var(--surface); padding: 4px 4px 4px 0;
+  transition: border-color .2s, box-shadow .2s;
+}
+.key-field:focus-within { border-color: var(--forte-magenta); box-shadow: 0 0 0 4px var(--magenta-tint); }
+.key-field input {
+  flex: 1; min-width: 0; height: 44px; padding: 0 14px;
+  border: 0; outline: none; background: transparent;
+  font: 500 16px/1 var(--font); color: var(--text);
+}
+.key-field input::placeholder { color: #A3A3A3; font-weight: 400; }
+.key-toggle {
+  flex: none; height: 40px; padding: 0 12px; border: 0; border-radius: 9px;
+  background: var(--magenta-tint); color: var(--forte-magenta);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.key-toggle:hover { background: #F8DCE8; }
+.gate-error {
+  margin: 12px 0 0; padding: 10px 14px;
+  background: var(--coral-tint); color: var(--forte-dark);
+  border-left: 4px solid var(--forte-magenta); border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 600;
+}
+.gate-submit { width: 100%; margin-top: 20px; }
+.gate-submit:disabled { cursor: progress; }
+
+@media (max-width: 560px) {
+  .header-tag { display: none; }
+  .gate-body { padding: 40px 20px 22px; }
+  .gate-top { padding: 20px; height: 104px; }
+  .gate-lock { left: 20px; }
+}

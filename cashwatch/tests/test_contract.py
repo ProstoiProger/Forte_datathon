@@ -141,13 +141,20 @@ def test_api_extra_fields_are_opt_in(make_settings, video_path: Path) -> None:
     assert {"confidence", "rule"} <= body["violations"][0].keys()
 
 
-def test_ui_endpoints_are_open_and_detailed(client: TestClient, video_path: Path) -> None:
-    response = submit(client, video_path, name="clip.mp4", path="/ui/api/analyze", headers={})
+def test_ui_endpoints_need_the_key_and_are_detailed(client: TestClient, video_path: Path) -> None:
+    response = submit(client, video_path, name="clip.mp4", path="/ui/api/analyze", headers=HEADERS)
     assert response.status_code == 200
-    body = wait_for(client, response.json()["job_id"], path="/ui/api/jobs/{}", headers={})
+    job_id = response.json()["job_id"]
+    body = wait_for(client, job_id, path="/ui/api/jobs/{}", headers=HEADERS)
     assert body["status"] == "done"
     assert {"confidence", "rule", "title"} <= body["violations"][0].keys()
+    assert client.get("/ui/api/types", headers=HEADERS).status_code == 200
+    for headers in ({}, {"X-API-Key": "wrong"}):
+        assert submit(client, video_path, name="clip.mp4", path="/ui/api/analyze", headers=headers).status_code == 401
+        assert client.get(f"/ui/api/jobs/{job_id}", headers=headers).status_code == 401
+        assert client.get("/ui/api/types", headers=headers).status_code == 401
     assert client.get("/").status_code == 200
+    assert client.get("/static/app.js").status_code == 200
 
 
 def test_ui_can_be_disabled(make_settings, video_path: Path) -> None:

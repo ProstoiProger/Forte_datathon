@@ -6,10 +6,30 @@ const els = {
   status: $("status"), fill: $("fill"), statusText: $("status-text"), error: $("error"),
   result: $("result"), verdict: $("verdict"), video: $("video"), meta: $("meta"),
   events: $("events"), types: $("types"), lightbox: $("lightbox"), lightboxImg: $("lightbox-img"),
+  gate: $("gate"), gateForm: $("gate-form"), keyInput: $("key-input"), keyToggle: $("key-toggle"),
+  keyError: $("key-error"), keySubmit: $("key-submit"), keyChange: $("key-change"),
 };
 
 let selected = null;
 let objectUrl = null;
+
+// The service needs the same X-API-Key as the API. The key is kept in this browser only.
+const KEY_STORE = "cashwatch.apiKey";
+
+class AuthError extends Error {}
+
+function loadKey() {
+  try { return localStorage.getItem(KEY_STORE) || ""; } catch (_) { return ""; }
+}
+
+function saveKey(key) {
+  try {
+    if (key) localStorage.setItem(KEY_STORE, key);
+    else localStorage.removeItem(KEY_STORE);
+  } catch (_) { /* storage blocked: the key lives until the page is closed */ }
+}
+
+let apiKey = loadKey();
 
 function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
@@ -72,6 +92,7 @@ function upload(file) {
     const form = new FormData();
     form.append("file", file, file.name);
     xhr.open("POST", "/ui/api/analyze");
+    xhr.setRequestHeader("X-API-Key", apiKey);
     xhr.upload.addEventListener("progress", (e) => {
       if (e.lengthComputable) setProgress("Загрузка", (e.loaded / e.total) * 100);
     });
@@ -79,6 +100,7 @@ function upload(file) {
       let body = {};
       try { body = JSON.parse(xhr.responseText); } catch (_) { body = {}; }
       if (xhr.status === 200 && body.job_id) resolve(body.job_id);
+      else if (xhr.status === 401) reject(new AuthError("Ключ доступа не принят"));
       else reject(new Error(body.detail || `Ошибка загрузки (${xhr.status})`));
     });
     xhr.addEventListener("error", () => reject(new Error("Сервис недоступен")));
@@ -90,7 +112,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function waitForJob(jobId) {
   for (;;) {
-    const response = await fetch(`/ui/api/jobs/${jobId}`);
+    const response = await fetch(`/ui/api/jobs/${jobId}`, { headers: { "X-API-Key": apiKey } });
+    if (response.status === 401) throw new AuthError("Ключ доступа не принят");
     if (!response.ok) throw new Error(`Ошибка запроса статуса (${response.status})`);
     const body = await response.json();
     if (body.status === "done") return body;
@@ -181,18 +204,96 @@ els.run.addEventListener("click", async () => {
     setProgress("Готово", 100);
     render(result);
   } catch (err) {
-    showError(err.message);
+    els.status.hidden = true;
+    if (err instanceof AuthError) lock("Ключ доступа не принят. Введите действующий ключ и запустите проверку снова.");
+    else showError(err.message);
   } finally {
     els.run.disabled = !selected;
   }
 });
 
-fetch("/ui/api/types")
-  .then((r) => (r.ok ? r.json() : []))
-  .then((types) => {
-    els.types.replaceChildren(...types.map((t) => el("li", { class: "type-item" }, [
-      el("strong", { class: "type-title", text: t.title }),
-      el("span", { class: "type-desc", text: t.rationale }),
-    ])));
-  })
-  .catch(() => {});
+function renderTypes(types) {
+  els.types.replaceChildren(...types.map((t) => el("li", { class: "type-item" }, [
+    el("strong", { class: "type-title", text: t.title }),
+    el("span", { class: "type-desc", text: t.rationale }),
+  ])));
+}
+
+// Checks a key against the service; the list of violation types is the cheapest call that needs one.
+async function fetchTypes(key) {
+  let response;
+  try {
+    response = await fetch("/ui/api/types", { headers: { "X-API-Key": key } });
+  } catch (_) {
+    throw new Error("Сервис недоступен, попробуйте позже");
+  }
+  if (response.status === 401) throw new AuthError("Неверный ключ доступа");
+  if (!response.ok) throw new Error(`Сервис недоступен (${response.status})`);
+  return response.json();
+}
+
+function showKeyError(message) {
+  els.keyError.textContent = message;
+  els.keyError.hidden = !message;
+}
+
+function lock(message = "") {
+  apiKey = "";
+  saveKey("");
+  els.keyChange.hidden = true;
+  els.keyInput.value = "";
+  showKeyError(message);
+  els.gate.hidden = false;
+  document.body.classList.add("locked");
+  els.keyInput.focus();
+}
+
+function unlock(key, types) {
+  apiKey = key;
+  saveKey(key);
+  els.gate.hidden = true;
+  els.keyChange.hidden = false;
+  document.body.classList.remove("locked");
+  showKeyError("");
+  renderTypes(types);
+}
+
+els.gateForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const key = els.keyInput.value.trim();
+  if (!key) {
+    showKeyError("Введите ключ доступа");
+    els.keyInput.focus();
+    return;
+  }
+  els.keySubmit.disabled = true;
+  showKeyError("");
+  try {
+    unlock(key, await fetchTypes(key));
+  } catch (err) {
+    showKeyError(err.message);
+    els.keyInput.select();
+  } finally {
+    els.keySubmit.disabled = false;
+  }
+});
+
+els.keyToggle.addEventListener("click", () => {
+  const show = els.keyInput.type === "password";
+  els.keyInput.type = show ? "text" : "password";
+  els.keyToggle.textContent = show ? "Скрыть" : "Показать";
+  els.keyToggle.setAttribute("aria-pressed", String(show));
+});
+
+els.keyChange.addEventListener("click", () => lock());
+
+if (!apiKey) {
+  lock();
+} else {
+  fetchTypes(apiKey)
+    .then((types) => unlock(apiKey, types))
+    .catch((err) => {
+      if (err instanceof AuthError) lock("Сохранённый ключ больше не действует. Введите новый ключ.");
+      else els.keyChange.hidden = false; // service down: keep the key, the upload will report the error
+    });
+}

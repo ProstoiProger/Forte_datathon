@@ -94,7 +94,8 @@ def get_job(request: Request, job_id: str) -> dict[str, Any]:
     return read_job(request, job_id, request.app.state.settings.api_extra_fields)
 
 
-ui_router = APIRouter(prefix="/ui/api")
+# the page and its static files stay open (no data in them); everything the page asks the service needs the key
+ui_router = APIRouter(prefix="/ui/api", dependencies=[Depends(require_api_key)])
 
 
 @ui_router.post("/analyze")

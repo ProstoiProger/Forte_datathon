@@ -17,7 +17,10 @@
         <span class="brand-divider" aria-hidden="true"></span>
         <span class="brand-product">Контроль кассовой дисциплины</span>
       </div>
-      <span class="tag tag-outline header-tag">Служба внутреннего контроля</span>
+      <div class="header-actions">
+        <span class="tag tag-outline header-tag">Служба внутреннего контроля</span>
+        <button class="key-btn" id="key-change" type="button" hidden>Сменить ключ</button>
+      </div>
     </div>
   </header>
 
@@ -94,6 +97,26 @@
       <p class="footer-note">Видео обрабатывается на серверах банка и не передаётся третьим лицам.</p>
     </div>
   </footer>
+
+  <div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title" hidden>
+    <form class="gate-panel" id="gate-form" novalidate>
+      <div class="gate-top">
+        <img src="/static/forte-logo-white.svg" alt="Forte" width="80" height="24">
+        <span class="gate-lock" aria-hidden="true"></span>
+      </div>
+      <div class="gate-body">
+        <h2 class="gate-title" id="gate-title">Вход в сервис</h2>
+        <p class="gate-sub">Введите ключ доступа, выданный администратором. Ключ сохранится в этом браузере.</p>
+        <label class="field-label" for="key-input">Ключ доступа</label>
+        <div class="key-field">
+          <input id="key-input" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Вставьте ключ">
+          <button class="key-toggle" id="key-toggle" type="button" aria-pressed="false">Показать</button>
+        </div>
+        <p class="gate-error" id="key-error" role="alert" hidden></p>
+        <button class="btn btn-primary gate-submit" id="key-submit" type="submit">Войти</button>
+      </div>
+    </form>
+  </div>
 
   <div class="lightbox" id="lightbox" hidden>
     <button class="lightbox-close" type="button" aria-label="Закрыть увеличенный кадр">&times;</button>

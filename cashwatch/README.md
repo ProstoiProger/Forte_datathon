@@ -72,7 +72,7 @@ videos.
 
 ## API
 
-All `/api/v1` endpoints except `/health` require the `X-API-Key` header.
+All `/api/v1` endpoints except `/health` require the `X-API-Key` header; so do the web UI endpoints under `/ui/api`.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -122,7 +122,7 @@ Responses: `401` bad or missing key, `404` unknown job, `413` file too large, `4
 | `CASHWATCH_TIME_BUDGET_SEC` | `240` | Processing budget counted from upload |
 | `CASHWATCH_QUEUE_MAX` | `64` | Maximum queued jobs |
 | `CASHWATCH_API_EXTRA_FIELDS` | `false` | Extra fields in API responses |
-| `CASHWATCH_UI_ENABLED` | `true` | Serve the web UI and its keyless endpoints under `/ui/api` |
+| `CASHWATCH_UI_ENABLED` | `true` | Serve the web UI and its endpoints under `/ui/api` (same `X-API-Key` as the API) |
 | `CASHWATCH_KEEP_UPLOADS` | `false` | Keep uploaded videos after processing |
 
 ## Design

@@ -56,7 +56,8 @@ docker compose down
   must print `no key -> 401` and `done in ...s` without `FAIL`. Five uploads at once were answered within 244 s
   (limit 300 s): jobs share the time left fairly (`CASHWATCH_FAIR_SHARE_BUDGET`, `CASHWATCH_MIN_JOB_SEC`,
   `CASHWATCH_MAX_JOB_SEC`).
-- The web UI (`/`) needs no key, the jury API (`/api/v1`) does; set `CASHWATCH_UI_ENABLED=false` to serve the API only.
+- The web UI (`/`) asks for the same API key once and keeps it in the browser; its endpoints (`/ui/api`) answer 401
+  without it, like the jury API (`/api/v1`). Set `CASHWATCH_UI_ENABLED=false` to serve the API only.
 - Keep the host awake during the jury run: charger in, sleep "never", lid close does nothing, Windows Update paused,
   Docker Desktop and Ollama started at login.
 
