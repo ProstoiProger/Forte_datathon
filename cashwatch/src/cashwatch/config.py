@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="CASHWATCH_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_prefix="CASHWATCH_", env_file=("../.env", ".env"), extra="ignore")  # project root .env first
 
     api_keys: str
     data_dir: Path = Path("var")
@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     time_budget_sec: float = 240.0
     fair_share_budget: bool = True  # split the time left with the jobs waiting in the queue
     min_job_sec: float = 25.0  # enough to decode and perceive a few windows
-    max_job_sec: float | None = 100.0  # a job that starts alone leaves time for uploads arriving right after it
+    max_job_sec: float | None = None  # optional cap per job; by default a job alone may use the whole budget
     queue_max: int = 64
     api_extra_fields: bool = False
     ui_enabled: bool = True
@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     allowed_extensions: tuple[str, ...] = (".mov",)
     ui_allowed_extensions: tuple[str, ...] = (".mov", ".mp4", ".m4v")
     host: str = "0.0.0.0"
-    port: int = 8000
+    port: int = 47800  # uncommon port: nothing else on the host uses it
     min_confidence: float | None = None
     fallback: Literal["none", "stub"] = "none"
     vlm_url: str = "http://127.0.0.1:11434"
@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     facts_frames: int = Field(4, ge=1)
     facts_verify_frames: int = Field(8, ge=1)
     facts_verify_context_sec: float = Field(3.0, ge=0)
-    facts_max_windows: int = Field(24, ge=1)
+    facts_max_windows: int = Field(40, ge=1)  # 40 x 4 s covers the longest clips without widening windows
     facts_min_windows: int = Field(3, ge=1)  # perceived even when the verification reserve has to be spent
     facts_max_candidates: int = Field(2, ge=1)
     facts_max_verify: int = Field(2, ge=0)
@@ -59,9 +59,10 @@ class Settings(BaseSettings):
     facts_est_verify_sec: float = Field(11.0, gt=0)  # one verification call (8 frames + 2 references)
     facts_verify_reserve_sec: float = Field(25.0, ge=0)
     facts_unverified_confidence: float = Field(0.6, ge=0, le=1)
+    facts_double_check_types: str = "door_left_open,unusual"  # confirmed only if a second frame sample agrees
     facts_keep_rejected_types: str = ""  # comma-separated type ids kept when the verifier rejects them (recall first)
     casebase_dir: str = "data/casebase"
-    regsearch_url: str | None = "http://127.0.0.1:8765"
+    regsearch_url: str | None = "http://127.0.0.1:47865"
     regsearch_timeout_sec: float = Field(5.0, gt=0)
 
     @field_validator("api_keys")

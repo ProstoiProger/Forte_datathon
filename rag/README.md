@@ -39,7 +39,7 @@ situations that no registry type covers. The GPU belongs to the VLM, so the embe
 (`--device cpu` also hides CUDA from the process); the cross-encoder is off unless `--rerank` is given.
 
 ```powershell
-uv run rag serve --host 127.0.0.1 --port 8765 --device cpu [--rerank]
+uv run rag serve --host 127.0.0.1 --port 47865 --device cpu [--rerank]
 ```
 
 The port opens at once and the indexes and the embedder load in the background (about 8 s on CPU, including a
@@ -52,7 +52,7 @@ warm-up query); `/search` answers 503 until then. Searches are serialized by one
 
 ```powershell
 # query.json (UTF-8): {"query": "Кассир покинул рабочее место, оставив наличные деньги на столе", "k": 3}
-curl.exe -s http://127.0.0.1:8765/search -H "Content-Type: application/json" --data-binary "@query.json"
+curl.exe -s http://127.0.0.1:47865/search -H "Content-Type: application/json" --data-binary "@query.json"
 ```
 
 ```json

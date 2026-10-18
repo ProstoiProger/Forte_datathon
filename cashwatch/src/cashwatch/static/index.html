@@ -3,53 +3,92 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#A31551">
   <title>Контроль кассовой дисциплины</title>
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <header class="top">
-    <div class="wrap">
-      <h1>Контроль кассовой дисциплины</h1>
-      <p class="sub">Анализ видеозаписи работы кассира. Результат является подсказкой для проверки человеком, а не юридическим заключением.</p>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <div class="brand">
+        <img class="brand-logo" src="/static/forte-logo.svg" alt="Forte" width="94" height="28">
+        <span class="brand-divider" aria-hidden="true"></span>
+        <span class="brand-product">Контроль кассовой дисциплины</span>
+      </div>
+      <span class="tag tag-outline header-tag" title="Прототип для ForteBank Datathon 26, не официальный сервис банка">Прототип<span class="hide-sm"> · Datathon 26</span></span>
     </div>
   </header>
 
   <main class="wrap">
-    <section class="card" id="upload-card">
+    <section class="hero" aria-labelledby="page-title">
+      <span class="hero-accent" aria-hidden="true"></span>
+      <p class="eyebrow">Прототип для ForteBank Datathon 26</p>
+      <h1 id="page-title">Проверка видеозаписи работы кассира</h1>
+      <p class="sub">Анализ видеозаписи работы кассира. Результат является подсказкой для проверки человеком, а не юридическим заключением.</p>
+      <ol class="steps">
+        <li><span class="step-num">1</span><span>Загрузите запись с камеры над кассой</span></li>
+        <li><span class="step-num">2</span><span>Дождитесь окончания анализа</span></li>
+        <li><span class="step-num">3</span><span>Проверьте эпизоды, кадры и основания</span></li>
+      </ol>
+    </section>
+
+    <section class="card upload-card" id="upload-card" aria-labelledby="upload-title">
+      <h2 class="card-title" id="upload-title">Видео для проверки</h2>
       <label class="drop" id="drop">
-        <input type="file" id="file" accept=".mov,.mp4,.m4v,video/quicktime,video/mp4" hidden>
+        <input type="file" id="file" class="visually-hidden" accept=".mov,.mp4,.m4v,video/quicktime,video/mp4">
+        <span class="drop-icon" aria-hidden="true"></span>
         <span class="drop-title">Перетащите видео сюда или нажмите для выбора</span>
         <span class="drop-hint">Формат .mov, до 200 МБ</span>
         <span class="drop-file" id="file-name"></span>
       </label>
       <div class="actions">
-        <button id="run" disabled>Проверить видео</button>
+        <button class="btn btn-primary" id="run" type="button" disabled>Проверить видео</button>
       </div>
       <div class="status" id="status" hidden>
         <div class="bar"><div class="fill" id="fill"></div></div>
-        <span id="status-text"></span>
+        <span class="status-text" id="status-text"></span>
       </div>
-      <p class="error" id="error" hidden></p>
+      <p class="error" id="error" role="alert" hidden></p>
     </section>
 
-    <section id="result" hidden>
-      <div class="verdict" id="verdict"></div>
+    <section class="result" id="result" hidden>
+      <div class="verdict" id="verdict" role="status"></div>
       <div class="grid">
         <div class="player card">
+          <h2 class="card-title">Видеозапись</h2>
           <video id="video" controls muted playsinline></video>
           <p class="meta" id="meta"></p>
         </div>
-        <div class="events" id="events"></div>
+        <div class="events-col">
+          <h2 class="section-title">Эпизоды и нормативные основания</h2>
+          <p class="section-hint">Таймкод переводит видео к моменту эпизода, кадр открывается в увеличенном виде.</p>
+          <div class="events" id="events"></div>
+        </div>
       </div>
     </section>
 
-    <details class="card types">
+    <details class="types">
       <summary>Какие нарушения распознает сервис</summary>
-      <ul id="types"></ul>
+      <ul class="types-list" id="types"></ul>
     </details>
   </main>
 
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <div class="footer-brand">
+        <img class="footer-logo" src="/static/forte-logo-white.svg" alt="Forte" width="80" height="24">
+        <p class="footer-title">Прототип для ForteBank Datathon 26 · Контроль кассовой дисциплины</p>
+      </div>
+      <hr class="footer-rule">
+      <p class="footer-note">Демонстрационный прототип участника хакатона. Не является официальным сайтом, продуктом или позицией ForteBank.</p>
+      <p class="footer-note">Результат анализа является подсказкой для проверки человеком, а не юридическим заключением.</p>
+    </div>
+  </footer>
+
   <div class="lightbox" id="lightbox" hidden>
+    <button class="lightbox-close" type="button" aria-label="Закрыть увеличенный кадр">&times;</button>
     <img id="lightbox-img" alt="Кадр-доказательство">
   </div>
 

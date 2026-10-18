@@ -64,6 +64,7 @@ els.file.addEventListener("change", () => choose(els.file.files[0]));
 }));
 els.drop.addEventListener("drop", (e) => choose(e.dataTransfer.files[0]));
 els.lightbox.addEventListener("click", () => { els.lightbox.hidden = true; });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") els.lightbox.hidden = true; });
 
 function upload(file) {
   return new Promise((resolve, reject) => {
@@ -106,34 +107,43 @@ function seek(sec) {
 }
 
 function ruleBlock(rule) {
-  if (!rule) return el("div", { class: "rule", text: "Нормативное основание: не указано" });
-  const label = rule.verified === false
+  if (!rule) return el("div", { class: "rule rule-none", text: "Нормативное основание: не указано" });
+  const unverified = rule.verified === false;
+  const label = unverified
     ? `Возможное основание (подобрано поиском по НПА, требует проверки): ${rule.clause}. `
     : `Основание: ${rule.approved_by}, ${rule.clause}. `;
-  const parts = [el("span", { text: label })];
-  if (rule.url) parts.push(el("a", { href: rule.url, target: "_blank", rel: "noopener", text: "Текст акта" }));
-  if (rule.quote) parts.push(el("p", { text: `"${rule.quote}"` }));
-  return el("div", { class: "rule" }, parts);
+  const tag = unverified
+    ? el("span", { class: "tag tag-outline tag-warn", text: "требует проверки" })
+    : el("span", { class: "tag tag-solid", text: "норма из реестра" });
+  const text = [el("span", { text: label })];
+  if (rule.url) text.push(el("a", { href: rule.url, target: "_blank", rel: "noopener", text: "Текст акта" }));
+  const parts = [el("div", { class: "rule-head" }, [tag]), el("p", { class: "rule-text" }, text)];
+  if (rule.quote) parts.push(el("blockquote", { class: "rule-quote", text: `«${rule.quote}»` }));
+  return el("div", { class: `rule ${unverified ? "rule-unverified" : "rule-verified"}` }, parts);
 }
 
 function eventCard(v, index) {
   const frames = v.evidence_frames.map((f) => {
     const src = `data:image/jpeg;base64,${f.image_base64}`;
-    const img = el("img", { src, alt: `Кадр ${fmtTime(f.timestamp_sec)}`, onclick: () => {
+    const img = el("img", { src, alt: `Кадр ${fmtTime(f.timestamp_sec)}` });
+    const thumb = el("button", { class: "thumb", type: "button", "aria-label": `Увеличить кадр ${fmtTime(f.timestamp_sec)}`, onclick: () => {
       els.lightboxImg.src = src;
       els.lightbox.hidden = false;
-    } });
-    return el("figure", {}, [img, el("figcaption", { text: fmtTime(f.timestamp_sec) })]);
+    } }, [img]);
+    return el("figure", { class: "frame" }, [thumb, el("figcaption", { text: fmtTime(f.timestamp_sec) })]);
   });
   const conf = typeof v.confidence === "number" ? el("span", { class: "conf", text: `уверенность ${(v.confidence * 100).toFixed(0)}%` }) : null;
   return el("article", { class: "card event" }, [
-    el("h3", { text: `${index + 1}. ${v.type}` }),
+    el("h3", { class: "event-title" }, [
+      el("span", { class: "event-num", text: String(index + 1) }),
+      el("span", { text: v.type }),
+    ]),
     el("div", { class: "event-head" }, [
-      el("button", { class: "tc", onclick: () => seek(v.timecode_sec), text: fmtTime(v.timecode_sec) }),
+      el("button", { class: "tc", type: "button", "aria-label": `Перейти к ${fmtTime(v.timecode_sec)} в видео`, onclick: () => seek(v.timecode_sec), text: fmtTime(v.timecode_sec) }),
       conf,
     ]),
-    el("p", { text: v.description }),
-    el("div", { class: "frames" }, frames),
+    el("p", { class: "event-desc", text: v.description }),
+    frames.length ? el("div", { class: "frames" }, frames) : null,
     ruleBlock(v.rule),
   ]);
 }
@@ -154,7 +164,7 @@ function render(result) {
   els.meta.textContent = parts.join(", ");
   els.events.replaceChildren(...(bad
     ? result.violations.map(eventCard)
-    : [el("p", { class: "card", text: "Визуально наблюдаемых признаков нарушений не найдено." })]));
+    : [el("p", { class: "card empty-state", text: "Визуально наблюдаемых признаков нарушений не найдено." })]));
   els.result.scrollIntoView({ behavior: "smooth" });
 }
 
@@ -180,9 +190,9 @@ els.run.addEventListener("click", async () => {
 fetch("/ui/api/types")
   .then((r) => (r.ok ? r.json() : []))
   .then((types) => {
-    els.types.replaceChildren(...types.map((t) => el("li", {}, [
-      el("strong", { text: t.title }),
-      el("span", { text: ` - ${t.rationale}` }),
+    els.types.replaceChildren(...types.map((t) => el("li", { class: "type-item" }, [
+      el("strong", { class: "type-title", text: t.title }),
+      el("span", { class: "type-desc", text: t.rationale }),
     ])));
   })
   .catch(() => {});

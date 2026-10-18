@@ -1,4 +1,5 @@
 import hmac
+import time
 from pathlib import Path
 from typing import Any
 
@@ -63,10 +64,23 @@ def read_job(request: Request, job_id: str, detail: bool) -> dict[str, Any]:
 api_router = APIRouter(prefix="/api/v1")
 
 
+STATUS_TTL_SEC = 10.0  # the model and the regulation search can come up after cashwatch; re-check, but not per poll
+
+
+def _analyzer_status(request: Request) -> tuple[bool, str]:
+    state, manager = request.app.state, _manager(request)
+    status = getattr(state, "analyzer_status", None)
+    if status is None or time.monotonic() - getattr(state, "analyzer_checked_at", 0.0) > STATUS_TTL_SEC:
+        check = getattr(manager.analyzer, "check", None)
+        status = check() if check else (True, manager.analyzer.name)
+        state.analyzer_status, state.analyzer_checked_at = status, time.monotonic()
+    return status
+
+
 @api_router.get("/health")
 def health(request: Request) -> dict[str, Any]:
     manager = _manager(request)
-    ready, detail = getattr(request.app.state, "analyzer_status", (True, manager.analyzer.name))
+    ready, detail = _analyzer_status(request)
     return {"status": "ok", "analyzer": manager.analyzer.name, "ready": ready, "detail": detail, "queue": manager.queue_size()}
 
 

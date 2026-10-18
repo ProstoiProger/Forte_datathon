@@ -181,6 +181,19 @@ class JobManager:
                 self._process(record)
             self._queue.task_done()
 
+    def _log_trace(self, record: JobRecord) -> None:
+        """One log line per job with what the analyzer saw (windows, candidates, verifications), for diagnosis."""
+        stats = getattr(getattr(self.analyzer, "primary", self.analyzer), "last_stats", None)
+        if not stats:
+            return
+        verifications = [
+            {k: v.get(k) for k in ("window", "type_id", "rule", "confirmed", "frame_t", "description")}
+            for v in stats.get("verifications", [])
+        ]
+        trace = {k: stats.get(k) for k in ("windows", "perceived", "facts_failed", "facts_skipped", "candidates", "seconds")}
+        log.info("job %s (%s) trace %s verifications %s", record.job_id, record.filename,
+                 json.dumps(trace, ensure_ascii=False), json.dumps(verifications, ensure_ascii=False))
+
     def _process(self, record: JobRecord) -> None:
         upload = self.settings.uploads_dir / record.upload
         remaining = self.settings.time_budget_sec - (time.time() - record.created_at)
@@ -197,6 +210,7 @@ class JobManager:
             info = probe(upload)
             threshold = threshold_for(self.settings, self.analyzer)
             events = [e for e in self.analyzer.analyze(upload, progress, deadline) if e.confidence >= threshold]
+            self._log_trace(record)
             violations = render_violations(events, upload, info, self.registry)
             self._update(
                 record,

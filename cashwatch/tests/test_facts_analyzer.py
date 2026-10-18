@@ -266,3 +266,52 @@ def test_facts_without_stub_fallback_is_not_wrapped(make_settings, monkeypatch):
     from cashwatch.analyzers import build_analyzer
     monkeypatch.setattr(facts_module, "build_facts_analyzer", lambda settings: analyzer(FakePerceiver(), FakeCaseBase()))
     assert isinstance(build_analyzer(make_settings(analyzer="facts", fallback="none")), FactsAnalyzer)
+
+
+class SequencePerceiver(FakePerceiver):
+    def __init__(self, verdicts):
+        super().__init__()
+        self.verdicts = list(verdicts)
+
+    def verify(self, frames, norms, refs, type_title, deadline=None):
+        super().verify(frames, norms, refs, type_title, deadline)
+        return self.verdicts.pop(0)
+
+
+def door_candidate(windows):
+    return [Candidate(w, "door_left_open", "entered_door_open", 2.0) for w in windows if w.flags["cashier_leaving"]]
+
+
+def test_double_check_rejects_when_second_sample_disagrees():
+    p = SequencePerceiver([Verification(True, 2, "Дверь открыта.", 0.9), Verification(False, 0, "Дверь закрыта.", 0.8)])
+    a = analyzer(p, FakeCaseBase(door_candidate), double_check_types=frozenset({"door_left_open"}))
+    assert run(a) == [] and len(p.verify_calls) == 2
+    assert [f.t for f in p.verify_calls[0]["frames"]] != [f.t for f in p.verify_calls[1]["frames"]]
+    assert a.last_stats["double_check_rejected"] == 1
+
+
+def test_double_check_keeps_when_both_agree_and_skips_other_types():
+    p = SequencePerceiver([Verification(True, 2, "Дверь открыта.", 0.9), Verification(True, 3, "Дверь открыта.", 0.9)])
+    a = analyzer(p, FakeCaseBase(door_candidate), double_check_types=frozenset({"door_left_open"}))
+    assert len(run(a)) == 1 and len(p.verify_calls) == 2
+    p2 = SequencePerceiver([Verification(True, 2, "Кассир уходит.", 0.9)])
+    assert len(run(analyzer(p2, FakeCaseBase(leaving_candidate), double_check_types=frozenset({"door_left_open"})))) == 1
+    assert len(p2.verify_calls) == 1
+
+
+def test_double_check_for_unusual_keeps_the_first_norm_when_second_confirms_with_another():
+    a = analyzer(FakePerceiver(), FakeCaseBase(lambda ws: leaving_candidate(ws, type_id=None)), double_check_types=frozenset({"unusual"}))
+    phone = next(i for i, (_, t) in enumerate(a.menu, 1) if t == "phone_use")
+    a.perceiver = SequencePerceiver([Verification(True, 1, "Телефон.", 0.9, norm_index=phone),
+                                     Verification(True, 1, "Телефон.", 0.9, norm_index=phone + 1)])
+    events = run(a)
+    assert [e.type_id for e in events] == ["phone_use"]
+    assert a.last_stats["verifications"][0]["second_norm_index"] == phone + 1
+
+
+def test_double_check_for_unusual_rejects_when_second_sample_disagrees():
+    a = analyzer(FakePerceiver(), FakeCaseBase(lambda ws: leaving_candidate(ws, type_id=None)), double_check_types=frozenset({"unusual"}))
+    phone = next(i for i, (_, t) in enumerate(a.menu, 1) if t == "phone_use")
+    a.perceiver = SequencePerceiver([Verification(True, 1, "Телефон.", 0.9, norm_index=phone),
+                                     Verification(False, 0, "Телефона нет.", 0.8, norm_index=None)])
+    assert run(a) == [] and a.last_stats["double_check_rejected"] == 1

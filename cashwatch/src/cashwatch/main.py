@@ -1,4 +1,5 @@
 import logging
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from importlib import resources
@@ -23,6 +24,7 @@ def create_app(settings: Settings | None = None, analyzer: Analyzer | None = Non
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         check = getattr(manager.analyzer, "check", None)
         app.state.analyzer_status = check() if check else (True, manager.analyzer.name)
+        app.state.analyzer_checked_at = time.monotonic()
         if not app.state.analyzer_status[0]:
             logging.getLogger("cashwatch").warning("analyzer not ready: %s", app.state.analyzer_status[1])
         manager.start()

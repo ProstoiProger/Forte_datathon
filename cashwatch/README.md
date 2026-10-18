@@ -6,16 +6,20 @@ All models run inside the service; no cloud AI APIs are called while processing 
 
 ## Run
 
+In production the service runs in Docker from the repository root (`docker compose up -d`, see `../README.md`).
+Without Docker:
+
 ```bash
 uv sync
-cp .env.example .env
+cp ../.env.example ../.env                       # one project-wide .env at the repository root
 uv run python scripts/build_casebase.py          # once: case base bundle from ../knowledge/store/cases -> data/casebase
-(cd ../rag && uv run rag serve --port 8765 --device cpu &)   # optional: regulation search for unusual situations
+(cd ../rag && uv run rag serve --port 47865 --device cpu &)   # optional: regulation search for unusual situations
 uv run cashwatch
 ```
 
-Set `CASHWATCH_API_KEYS` in `.env` before starting (comma-separated for several keys).
-The web UI is served at `http://localhost:8000/`, the API under `/api/v1`.
+Settings are read from `../.env` (the repository root), then from `./.env` if present, then from the environment.
+Set `CASHWATCH_API_KEYS` before starting (comma-separated for several keys).
+The web UI is served at `http://localhost:47800/`, the API under `/api/v1`.
 Start order: Ollama with `qwen3.8:27b`, the regulation search service (optional; without it unusual situations are
 checked against the registry types only), then cashwatch. `/api/v1/health` reports the model and the search service.
 
@@ -35,6 +39,10 @@ video -> windows of 4 s (4 frames) -> VLM: boolean facts per window (perception.
   analyzer plans windows for its share, perceives the most dynamic windows first, always perceives at least
   `CASHWATCH_FACTS_MIN_WINDOWS`, and passes the deadline to every model call. A video is never reported clean without
   being looked at.
+- Double check (`CASHWATCH_FACTS_DOUBLE_CHECK_TYPES`, default `door_left_open,unusual`): a confirmed candidate of
+  these types is verified once more on the in-between frames of the same window and dropped if the second answer is
+  "no". The norm stays the one chosen first. Adds 10-25 s to a video where it triggers; under time pressure the
+  second call is skipped, not the event.
 - If verification fails or runs out of time, the best typed candidate is kept with
   `CASHWATCH_FACTS_UNVERIFIED_CONFIDENCE` and marked as unverified in its description.
 - Evaluation (`scripts/evaluate.py --analyzer facts`) sets the excluded camera setup on the analyzer, so case-base
@@ -48,12 +56,19 @@ manual review in `../knowledge/cases_review.json`):
 |---|---|---|---|---|---|---|
 | zero-shot VLM, whole video (baseline) | 0.55 | 15/21 | 12/19 | - | - | - |
 | `facts` without visual definitions | 0.675 | 12/21 | 4/19 | 6/22 | 7/22 | 49 / 127 |
-| `facts` (current) | 0.65 | 15/21 | 8/19 | 8/22 | 11/22 (92 % of matched events) | 48 / 127 |
+| `facts` with single verification | 0.65 | 15/21 | 8/19 | 8/22 | 11/22 (92 % of matched events) | 48 / 127 |
+| `facts` (current, double check) | 0.70 | 15/21 | 6/19 | 8/22 | 11/22 (92 % of matched events) | 52 / 181 |
+
+The double check removed the false alarms on X-31 and X-39 (glass door judged open on one frame sample, closed on
+the other) without losing a violation. The current row combines the single-verification predictions for the 34
+videos the double check does not touch (identical when re-run) with fresh runs of the six it does; the longer maximum
+time comes from a slower GPU during those runs (X-39: perception 143 s instead of 114 s).
 
 Known failure cases: violation types the facts cannot express (a client not identified, part of the cash kept, money
 of different clients mixed, banknotes not checked on the device); the VLM sometimes misreads the safe door (X-20);
-leaving the workplace looks the same in some clean and violation clips (X-25, X-27); "door left open" is ambiguous
-with a glass door (X-31). These numbers are development numbers: the rules were designed on the same 40 videos.
+leaving the workplace looks the same in some clean and violation clips (X-25, X-27); a stranger near the cashier is
+confirmed twice in a clean clip (X-16). These numbers are development numbers: the rules were designed on the same 40
+videos.
 
 ## API
 
@@ -66,8 +81,8 @@ All `/api/v1` endpoints except `/health` require the `X-API-Key` header.
 | GET | `/api/v1/health` | Liveness, analyzer name and queue length. |
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/analyze -H "X-API-Key: <key>" -F "file=@video.mov"
-curl http://localhost:8000/api/v1/jobs/<job_id> -H "X-API-Key: <key>"
+curl -X POST http://localhost:47800/api/v1/analyze -H "X-API-Key: <key>" -F "file=@video.mov"
+curl http://localhost:47800/api/v1/jobs/<job_id> -H "X-API-Key: <key>"
 ```
 
 Result when done:

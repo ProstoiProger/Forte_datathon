@@ -63,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--device", default=None)
     s = sub.add_parser("serve", help="HTTP search service (GET /health, POST /search)")
     s.add_argument("--host", default="127.0.0.1")
-    s.add_argument("--port", type=int, default=8765)
+    s.add_argument("--port", type=int, default=47865)
     s.add_argument("--device", default="cpu", help="cpu (default: the GPU belongs to the VLM) or cuda")
     s.add_argument("--rerank", action="store_true", help="load the cross-encoder (about 15 s per query on CPU)")
     args = p.parse_args(argv)

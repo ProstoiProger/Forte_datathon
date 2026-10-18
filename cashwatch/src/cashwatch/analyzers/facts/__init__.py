@@ -110,11 +110,12 @@ def plan_windows(frames: list[Frame], duration: float, window_sec: float, per_wi
     return out
 
 
-def evenly(items: list, n: int) -> list:
+def evenly(items: list, n: int, offset: float = 0.0) -> list:
+    """n items spread evenly; `offset` (0..1 of a step) picks the in-between items for a second, different sample."""
     if len(items) <= n:
         return list(items)
     step = (len(items) - 1) / (n - 1) if n > 1 else 0
-    return [items[round(k * step)] for k in range(n)]
+    return [items[min(len(items) - 1, round(k * step + offset * step))] for k in range(n)]
 
 
 def visible_facts_ru(window: FactWindow) -> str:
@@ -166,6 +167,7 @@ class FactsAnalyzer:
         merge_gap_sec: float = 4.0,
         unverified_confidence: float = 0.6,
         keep_rejected_types: frozenset[str] = frozenset(),
+        double_check_types: frozenset[str] = frozenset(),
     ) -> None:
         self.perceiver = perceiver
         self.casebase = casebase
@@ -193,6 +195,8 @@ class FactsAnalyzer:
         self.merge_gap_sec = merge_gap_sec
         self.unverified_confidence = unverified_confidence
         self.keep_rejected_types = frozenset(keep_rejected_types)  # recall over the verifier's veto for these types
+        # types whose confirmation must hold on a second, shifted set of frames ("unusual" = candidates without a type)
+        self.double_check_types = frozenset(double_check_types)
         self.menu = [(n, t.type_id) for t in self.registry.all() for n in norm_from_citation(t, MENU_QUOTE_CHARS)[:1]]
         self.exclude_reference_groups: set[str] = set()  # set by the evaluation harness to the scored video's setup
         self.last_stats: dict[str, Any] = {}
@@ -297,6 +301,16 @@ class FactsAnalyzer:
                 unverified = unverified or (cand if typed else None)
                 continue
             verified += 1
+            if v.confirmed and self._needs_double_check(cand):
+                second = self.perceiver.verify(self._candidate_frames(cand.window, frames, offset=0.5), norms, refs, title,
+                                               deadline=deadline - self.safety_sec)
+                # agreement = the second sample also confirms; the norm stays the first pass's choice (on the
+                # training videos the two passes often picked neighbouring clauses for the same event)
+                stats["verifications"][-1]["second"] = None if second is None else second.confirmed
+                stats["verifications"][-1]["second_norm_index"] = None if second is None else second.norm_index
+                if second is not None and not second.confirmed:
+                    stats["double_check_rejected"] = stats.get("double_check_rejected", 0) + 1
+                    v = Verification(False, 0, v.description, v.confidence)
             if not v.confirmed:
                 rejected += 1
                 if cand.type_id in self.keep_rejected_types:
@@ -314,11 +328,14 @@ class FactsAnalyzer:
                      verify_sec=round(time.monotonic() - t0, 2))
         return events
 
-    def _candidate_frames(self, window: FactWindow, frames: list[Frame]) -> list[Frame]:
+    def _needs_double_check(self, cand: Candidate) -> bool:
+        return (cand.type_id or "unusual") in self.double_check_types
+
+    def _candidate_frames(self, window: FactWindow, frames: list[Frame], offset: float = 0.0) -> list[Frame]:
         """The window with `verify_context_sec` on each side, evenly thinned, plus the last frame of the clip so the
         verifier can judge whether a state persists (a door or a safe left open, the cashier not returning)."""
         lo, hi = window.start - self.verify_context_sec, window.end + self.verify_context_sec
-        chosen = evenly([f for f in frames if lo <= f.t <= hi] or frames[:1], self.verify_frames)
+        chosen = evenly([f for f in frames if lo <= f.t <= hi] or frames[:1], self.verify_frames, offset)
         if frames and frames[-1].t > chosen[-1].t:
             chosen.append(frames[-1])
         return chosen
@@ -423,4 +440,5 @@ def build_facts_analyzer(settings: Any) -> FactsAnalyzer:
         merge_gap_sec=settings.vlm_merge_gap_sec,
         unverified_confidence=settings.facts_unverified_confidence,
         keep_rejected_types=frozenset(t.strip() for t in settings.facts_keep_rejected_types.split(",") if t.strip()),
+        double_check_types=frozenset(t.strip() for t in settings.facts_double_check_types.split(",") if t.strip()),
     )

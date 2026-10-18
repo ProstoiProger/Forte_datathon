@@ -1,0 +1,73 @@
+# Whole service in Docker: regulation search (rag, CPU), cashwatch (API + UI + facts analyzer) and a public
+# Cloudflare quick tunnel. The VLM runs in Ollama: by default the host's Ollama (it already holds qwen3.8:27b on the
+# GPU); on a clean machine start the bundled one with `--profile ollama` and set OLLAMA_URL=http://ollama:11434.
+#
+#   docker compose up -d --build               # start; settings and API keys come from ./.env
+#   docker compose logs tunnel | findstr trycloudflare   # public URL (changes every time the tunnel restarts)
+#   docker compose down                        # stop
+#
+# Data is mounted, never baked into images: the case base bundle (contains frames of the organizers' dataset),
+# the regulation indexes and the Hugging Face model cache. Nothing is downloaded at runtime.
+name: forte-cashwatch
+
+services:
+  rag:
+    build:
+      context: .
+      dockerfile: rag/Dockerfile
+    image: forte/rag:latest
+    volumes:
+      - ./rag/store:/data/store:ro
+      - ${HF_CACHE:?set HF_CACHE in .env}:/root/.cache/huggingface:ro
+    ports:
+      - "127.0.0.1:${RAG_PUBLISH_PORT:-47865}:8765"   # local access for development and evaluation runs
+    restart: unless-stopped
+
+  cashwatch:
+    build: ./cashwatch
+    image: forte/cashwatch:latest
+    env_file: .env
+    environment:
+      CASHWATCH_HOST: 0.0.0.0
+      CASHWATCH_PORT: "8000"
+      CASHWATCH_DATA_DIR: /data/var
+      CASHWATCH_CASEBASE_DIR: /data/casebase
+      CASHWATCH_VLM_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      CASHWATCH_REGSEARCH_URL: http://rag:8765
+    volumes:
+      - ./cashwatch/data/casebase:/data/casebase:ro
+      - cashwatch-jobs:/data/var
+    ports:
+      - "127.0.0.1:${CASHWATCH_PUBLISH_PORT:-47800}:8000"   # local access only; the public path is the tunnel
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      rag:
+        condition: service_started   # regulation search is optional; cashwatch reports it in /api/v1/health
+    restart: unless-stopped
+
+  tunnel:
+    image: cloudflare/cloudflared:2026.10.1
+    command: tunnel --no-autoupdate --url http://cashwatch:8000
+    depends_on:
+      cashwatch:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ollama:
+    profiles: ["ollama"]
+    image: ollama/ollama:0.40.5
+    volumes:
+      - ollama-models:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  cashwatch-jobs:
+  ollama-models:

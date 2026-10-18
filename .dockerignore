@@ -1,0 +1,13 @@
+# Build context of rag/Dockerfile is the repository root: send only knowledge/ and rag/ sources.
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+.git
+.env
+open
+npa_bank_kz
+cashwatch
+deploy
+knowledge/store
+rag/store
