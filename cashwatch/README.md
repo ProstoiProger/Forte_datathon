@@ -9,11 +9,51 @@ All models run inside the service; no cloud AI APIs are called while processing 
 ```bash
 uv sync
 cp .env.example .env
+uv run python scripts/build_casebase.py          # once: case base bundle from ../knowledge/store/cases -> data/casebase
+(cd ../rag && uv run rag serve --port 8765 --device cpu &)   # optional: regulation search for unusual situations
 uv run cashwatch
 ```
 
 Set `CASHWATCH_API_KEYS` in `.env` before starting (comma-separated for several keys).
 The web UI is served at `http://localhost:8000/`, the API under `/api/v1`.
+Start order: Ollama with `qwen3.8:27b`, the regulation search service (optional; without it unusual situations are
+checked against the registry types only), then cashwatch. `/api/v1/health` reports the model and the search service.
+
+## Facts analyzer (default, `CASHWATCH_ANALYZER=facts`)
+
+```
+video -> windows of 4 s (4 frames) -> VLM: boolean facts per window (perception.py)
+      -> case base: rules weighted by statistics of normal work in the 40 training videos (casebase/)
+      -> best 1-2 candidates -> VLM: candidate frames + reference examples + verbatim norm -> confirmed? (perception.py)
+      -> event: type and citation from the registry; for an unusual situation a registry type or a clause found by
+         the regulation search service (../rag), labeled as unverified
+```
+
+- The VLM never writes legal text; citations are attached by code (`results.py`), and legal references are removed
+  from the model's descriptions.
+- Time: the job manager splits the time left with the jobs waiting in the queue (`CASHWATCH_FAIR_SHARE_BUDGET`); the
+  analyzer plans windows for its share, perceives the most dynamic windows first, always perceives at least
+  `CASHWATCH_FACTS_MIN_WINDOWS`, and passes the deadline to every model call. A video is never reported clean without
+  being looked at.
+- If verification fails or runs out of time, the best typed candidate is kept with
+  `CASHWATCH_FACTS_UNVERIFIED_CONFIDENCE` and marked as unverified in its description.
+- Evaluation (`scripts/evaluate.py --analyzer facts`) sets the excluded camera setup on the analyzer, so case-base
+  statistics and reference examples never come from the scored video's room.
+- `scripts/eval_casebase.py` replays the stored facts through the case base (leave-one-setup-out, CPU only).
+
+Measured on the 40 training videos (2026-10-18, qwen3.8:27b, RTX 5090 Laptop, leave-one-setup-out; types from the
+manual review in `../knowledge/cases_review.json`):
+
+| Analyzer | Verdict accuracy | Violations found | False alarms | Timecode within 2 s | Type right | Median / max s per video |
+|---|---|---|---|---|---|---|
+| zero-shot VLM, whole video (baseline) | 0.55 | 15/21 | 12/19 | - | - | - |
+| `facts` without visual definitions | 0.675 | 12/21 | 4/19 | 6/22 | 7/22 | 49 / 127 |
+| `facts` (current) | 0.65 | 15/21 | 8/19 | 8/22 | 11/22 (92 % of matched events) | 48 / 127 |
+
+Known failure cases: violation types the facts cannot express (a client not identified, part of the cash kept, money
+of different clients mixed, banknotes not checked on the device); the VLM sometimes misreads the safe door (X-20);
+leaving the workplace looks the same in some clean and violation clips (X-25, X-27); "door left open" is ambiguous
+with a glass door (X-31). These numbers are development numbers: the rules were designed on the same 40 videos.
 
 ## API
 

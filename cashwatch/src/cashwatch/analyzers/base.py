@@ -27,6 +27,10 @@ class Event:
     coverage: int = 1
     raw_confidence: float | None = None
     window: int = -1
+    # For a type outside the rule registry: its title and the norm found by regulation search
+    # (keys: title, citation, quote, url, source). Registry types take title and citations from the registry.
+    title: str | None = None
+    norm: dict[str, str] | None = None
 
 
 class Analyzer(Protocol):

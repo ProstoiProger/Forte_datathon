@@ -10,7 +10,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from cashwatch.analyzers import threshold_for
+from cashwatch.analyzers import AnalyzerError, threshold_for
 from cashwatch.analyzers.base import Analyzer
 from cashwatch.config import Settings
 from cashwatch.results import public_violation, render_violations
@@ -25,6 +25,15 @@ PENDING = ("queued", "processing")
 
 class QueueFullError(Exception):
     pass
+
+
+def job_budget(remaining: float, waiting: int, fair_share: bool, floor: float, cap: float | None = None) -> float:
+    """Seconds this job may use. With fair sharing the time left is split with the jobs waiting behind it, so
+    five uploads at once each get about a fifth instead of the first taking everything and starving the rest.
+    `cap` bounds a job that starts alone, so uploads arriving a few seconds later still find time left."""
+    share = remaining / (1 + max(waiting, 0)) if fair_share else remaining
+    budget = max(min(remaining, share), floor)
+    return min(budget, cap) if cap else budget
 
 
 @dataclass
@@ -175,7 +184,9 @@ class JobManager:
     def _process(self, record: JobRecord) -> None:
         upload = self.settings.uploads_dir / record.upload
         remaining = self.settings.time_budget_sec - (time.time() - record.created_at)
-        deadline = time.monotonic() + max(remaining, 15.0)
+        budget = job_budget(remaining, self._queue.qsize(), self.settings.fair_share_budget, self.settings.min_job_sec,
+                            self.settings.max_job_sec)
+        deadline = time.monotonic() + budget
         self._update(record, status="processing", started_at=time.time(), analyzer=self.analyzer.name)
         self._save(record)
 
@@ -196,6 +207,10 @@ class JobManager:
                 violations=violations,
                 finished_at=time.time(),
             )
+        except AnalyzerError as exc:
+            # nothing could be analyzed in time: an explicit failure, never a guessed "no violation"
+            log.warning("job %s not analyzed: %s", record.job_id, exc)
+            self._update(record, status="failed", error=f"analysis incomplete: {exc}", finished_at=time.time())
         except VideoError as exc:
             self._update(record, status="failed", error=str(exc), finished_at=time.time())
         except Exception:

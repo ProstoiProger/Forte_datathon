@@ -3,6 +3,7 @@
 import argparse
 import json
 import logging
+import os
 import sys
 import time
 
@@ -23,6 +24,16 @@ def _free_gpu() -> None:
             logging.info("unloaded from Ollama: %s", ", ".join(freed))
     except Exception as exc:
         logging.info("ollama not reachable (%s); continuing", exc)
+
+
+def _serve(host: str, port: int, device: str, rerank: bool) -> int:
+    import uvicorn
+
+    from .server import create_app
+    if device == "cpu":
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""  # torch never opens a CUDA context next to the VLM
+    uvicorn.run(create_app(config.STORE, device=device, rerank=rerank), host=host, port=port, log_level="info")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -50,9 +61,16 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("eval", help="retrieval quality against the verified citations of the rule registry")
     s.add_argument("--rerank", action="store_true")
     s.add_argument("--device", default=None)
+    s = sub.add_parser("serve", help="HTTP search service (GET /health, POST /search)")
+    s.add_argument("--host", default="127.0.0.1")
+    s.add_argument("--port", type=int, default=8765)
+    s.add_argument("--device", default="cpu", help="cpu (default: the GPU belongs to the VLM) or cuda")
+    s.add_argument("--rerank", action="store_true", help="load the cross-encoder (about 15 s per query on CPU)")
     args = p.parse_args(argv)
 
     store = config.STORE
+    if args.cmd == "serve":
+        return _serve(args.host, args.port, args.device, args.rerank)
     if args.cmd == "build":
         from .corpus import build_chunks, save_chunks
         from .sparse import Sparse

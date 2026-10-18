@@ -107,7 +107,10 @@ function seek(sec) {
 
 function ruleBlock(rule) {
   if (!rule) return el("div", { class: "rule", text: "Нормативное основание: не указано" });
-  const parts = [el("span", { text: `Основание: ${rule.approved_by}, ${rule.clause}. ` })];
+  const label = rule.verified === false
+    ? `Возможное основание (подобрано поиском по НПА, требует проверки): ${rule.clause}. `
+    : `Основание: ${rule.approved_by}, ${rule.clause}. `;
+  const parts = [el("span", { text: label })];
   if (rule.url) parts.push(el("a", { href: rule.url, target: "_blank", rel: "noopener", text: "Текст акта" }));
   if (rule.quote) parts.push(el("p", { text: `"${rule.quote}"` }));
   return el("div", { class: "rule" }, parts);

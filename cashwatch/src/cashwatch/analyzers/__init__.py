@@ -44,6 +44,14 @@ def build_analyzer(settings: Settings) -> Analyzer:
         )
         secondary = MotionStubAnalyzer(mode="peak") if settings.fallback == "stub" else NullAnalyzer()
         return FallbackAnalyzer(primary, secondary)
+    if settings.analyzer == "facts":
+        from cashwatch.analyzers.fallback import FallbackAnalyzer
+        from cashwatch.analyzers.facts import build_facts_analyzer
+        from cashwatch.analyzers.stub import MotionStubAnalyzer
+
+        primary = build_facts_analyzer(settings)
+        # without a stub, a video that could not be analyzed fails visibly instead of becoming "no violation"
+        return FallbackAnalyzer(primary, MotionStubAnalyzer(mode="peak")) if settings.fallback == "stub" else primary
     raise ValueError(f"unknown analyzer {settings.analyzer!r}")
 
 

@@ -1,3 +1,4 @@
+import http.client
 import json
 import logging
 import math
@@ -53,7 +54,10 @@ Return {{"events": []}} if none of the frames shows a violation."""
 
 
 class VlmCallError(Exception):
-    pass
+    def __init__(self, message: str, status: int | None = None, body: str = "") -> None:
+        super().__init__(message)
+        self.status = status  # HTTP status when the server answered with an error
+        self.body = body
 
 
 @dataclass(frozen=True)
@@ -77,18 +81,22 @@ class OllamaClient:
         self.timeout = timeout
         self.num_ctx = num_ctx
         self.keep_alive = keep_alive
+        self.send_think = True  # cleared once the model rejects the "think" field
 
-    def _post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def _post(self, path: str, payload: dict[str, Any], timeout: float | None = None) -> dict[str, Any]:
         request = urllib.request.Request(
             f"{self.url}{path}", data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"}
         )
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            with urllib.request.urlopen(request, timeout=self.timeout if timeout is None else timeout) as response:
                 return json.loads(response.read().decode("utf-8"))
-        except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+        except urllib.error.HTTPError as exc:
+            body = _error_body(exc)
+            raise VlmCallError(f"{path}: HTTP {exc.code} {body[:200]}", status=exc.code, body=body) from exc
+        except (urllib.error.URLError, http.client.HTTPException, TimeoutError, OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise VlmCallError(f"{path}: {exc}") from exc
 
-    def chat(self, system: str, user: str, images: list[str], schema: dict[str, Any]) -> str:
+    def chat(self, system: str, user: str, images: list[str], schema: dict[str, Any], timeout: float | None = None) -> str:
         payload = {
             "model": self.model,
             "stream": False,
@@ -100,8 +108,19 @@ class OllamaClient:
                 {"role": "user", "content": user, "images": images},
             ],
         }
-        data = self._post("/api/chat", payload)
-        content = (data.get("message") or {}).get("content")
+        if self.send_think:
+            payload["think"] = False  # thinking models are much slower and time out otherwise
+        try:
+            data = self._post("/api/chat", payload, timeout)
+        except VlmCallError as exc:
+            if exc.status != 400 or "think" not in payload or "think" not in exc.body.lower():
+                raise
+            del payload["think"]
+            data = self._post("/api/chat", payload, timeout)
+            self.send_think = False
+            log.info("model %s rejects the think field; sending requests without it", self.model)
+        message = data.get("message") if isinstance(data, dict) else None
+        content = message.get("content") if isinstance(message, dict) else None
         if not isinstance(content, str):
             raise VlmCallError(f"no message content: {str(data)[:200]}")
         return content
@@ -115,6 +134,13 @@ class OllamaClient:
         if self.model not in names and f"{self.model}:latest" not in names:
             return False, f"model {self.model} not pulled; available: {', '.join(names) or 'none'}"
         return True, f"ollama {self.model}"
+
+
+def _error_body(exc: urllib.error.HTTPError) -> str:
+    try:
+        return exc.read().decode("utf-8", "replace")[:2000]
+    except (OSError, ValueError, AttributeError, http.client.HTTPException):
+        return ""
 
 
 def sample_frames(path: Path, fps: float, max_side: int, quality: int) -> list[Frame]:

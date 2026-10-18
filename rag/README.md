@@ -4,6 +4,8 @@ Hybrid retrieval over the Kazakhstan banking cash-desk regulations in `../npa_ba
 adilet.zan.kz, state of the database 14.10.2026). Fully local: BM25 and vector search run in-process, the
 embedder and the optional cross-encoder load from the local Hugging Face cache and never go online.
 
+Where every act comes from, how the corpus was selected and what was verified: [SOURCES.md](SOURCES.md).
+
 ```
 query text ─┬─► BM25 (Russian Snowball stemming + stopwords) ── top 100 ─┐
             └─► Qwen3-VL-Embedding-2B (text) · cosine ───────── top 100 ─┴─► RRF (k=60) ─► [bge-reranker-v2-m3] ─► top k
@@ -29,6 +31,43 @@ Settings (env vars, `src/npa_rag/config.py`): `RAG_NPA_DIR`, `RAG_STORE`, `RAG_I
 
 The embedder wrapper and the vector store come from `../knowledge` (`forte_kb.embedder`, `forte_kb.store`),
 installed read-only as a path dependency; nothing in `../knowledge` is modified.
+
+## Service
+
+cashwatch (Python 3.13, no torch) calls the retriever over HTTP (`cashwatch.regsearch.RegSearchClient`) for
+situations that no registry type covers. The GPU belongs to the VLM, so the embedder runs on the CPU by default
+(`--device cpu` also hides CUDA from the process); the cross-encoder is off unless `--rerank` is given.
+
+```powershell
+uv run rag serve --host 127.0.0.1 --port 8765 --device cpu [--rerank]
+```
+
+The port opens at once and the indexes and the embedder load in the background (about 8 s on CPU, including a
+warm-up query); `/search` answers 503 until then. Searches are serialized by one lock.
+
+| Endpoint | Body / response |
+|---|---|
+| `GET /health` | `{"ready": true, "chunks": 26182, "device": "cpu", "rerank": false, "error": null}` |
+| `POST /search` | `{"query": str 1..2000, "k": 1..10 = 3, "kinds": ["base"] (+ "repealed"), "rerank": false}` -> `{"query", "hits": [...], "timings_ms": {...}}`; 422 on invalid input, 400 if `rerank` is asked of a server started without it |
+
+```powershell
+# query.json (UTF-8): {"query": "Кассир покинул рабочее место, оставив наличные деньги на столе", "k": 3}
+curl.exe -s http://127.0.0.1:8765/search -H "Content-Type: application/json" --data-binary "@query.json"
+```
+
+```json
+{"query": "Кассир покинул рабочее место, оставив наличные деньги на столе",
+ "hits": [{"citation": "Правила осуществления кассовых операций ..., Параграф 2. Порядок осуществления кассовых операций по приему наличных денег, п. 20",
+           "act_requisites": "Постановление Правления Национального Банка Республики Казахстан от 29 ноября 2019 года № 231",
+           "label": "п. 20", "kind": "base", "status": "Обновленный", "url": "https://old.adilet.zan.kz/rus/docs/V1900019680",
+           "text": "20. Наличные деньги принимаются и пересчитываются кассовым работником в присутствии клиента. ...",
+           "rrf": 0.03252, "ranks": {"bm25": 1, "dense": 2}, "rerank": null, "...": "..."}, "..."],
+ "timings_ms": {"bm25": 0.4, "embed_query": 305.5, "dense": 2.7, "wait": 0.0, "total": 309.2}}
+```
+
+Each hit has `citation`, `act_title`, `act_requisites`, `label`, `part`, `text`, `url` (adilet), `status`, `kind`,
+`rrf`, `ranks`, `rerank` (plus `id`, `act_id`). Latency on CPU: about 0.35 s per query (query embedding 0.3 s,
+BM25 0.4 ms, dense search 3 ms).
 
 ## Chunks
 

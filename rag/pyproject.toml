@@ -11,13 +11,18 @@ dependencies = [
     "PyStemmer>=2.2",
     "numpy>=2.1",
     "scipy>=1.14",
+    "fastapi>=0.120",
+    "uvicorn>=0.38",
 ]
 
 [project.scripts]
 rag = "npa_rag.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8.4"]
+dev = [
+    "httpx2>=2.13.1",
+    "pytest>=8.4",
+]
 
 [tool.uv.sources]
 forte-kb = { path = "../knowledge", editable = true }

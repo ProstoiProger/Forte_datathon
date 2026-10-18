@@ -8,10 +8,10 @@ No cloud AI services are called while processing a video.
 
 | Folder | What it is | Status |
 |---|---|---|
-| [`cashwatch/`](cashwatch/README.md) | the service: API with key auth, job queue, web UI, VLM analyzer, rule registry (15 violation types with verbatim citations checked against adilet.zan.kz) | working; analyzer is zero-shot and does not use the knowledge bases yet |
+| [`cashwatch/`](cashwatch/README.md) | the service: API with key auth, job queue, web UI, rule registry (15 violation types with verbatim citations checked against adilet.zan.kz), analyzers `facts` (default: VLM facts -> case base -> VLM verification against a norm) and `vlm` (zero-shot) | working |
 | [`knowledge/`](knowledge/README.md) | empirical case memory built from the 40 labeled training videos: per-window VLM facts, reviewed events with rules, what normal work looks like, embeddings, leave-one-setup-out evaluation | built offline |
 | [`rag/`](rag/README.md) | hybrid retrieval over 313 Kazakhstan banking cash-desk acts: BM25 + dense vectors + reciprocal rank fusion, optional cross-encoder | built offline |
-| `npa_bank_kz/` | regulatory corpus (adilet.zan.kz, state of the database 14.10.2026): only `registry.json` and `texts/` are tracked | input of `rag/` |
+| `npa_bank_kz/` | regulatory corpus (adilet.zan.kz, state of the database 14.10.2026): only `registry.json` and `texts/` are tracked; provenance in [`rag/SOURCES.md`](rag/SOURCES.md) | input of `rag/` |
 | `datathon26_vlm_architecture_context_for_claude.md` | original architecture brief (three knowledge layers, open-world design) | reference |
 
 Presentation notes with experiments and design decisions: [`knowledge/PRESENTATION.md`](knowledge/PRESENTATION.md),
